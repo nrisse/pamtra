@@ -3,9 +3,8 @@ module sfc_optics
   ! variables
   use kinds
   use report_module
-  use settings, only: emissivity!, nstokes, nummu
   use vars_index, only: i_x, i_y, i_f
-  use vars_atmosphere, only : sfc_type, sfc_model, sfc_refl
+  use vars_atmosphere, only : sfc_type, sfc_model, sfc_refl, sfc_emissivity
   use vars_rt, only: rt_sfc_emissivity, rt_sfc_reflectivity
   use vars_output, only: out_emissivity
   ! routines
@@ -77,8 +76,8 @@ contains
           call report(errorstatus, msg, nameOfRoutine)
         end if
     else ! default sfc_type == -9999, sfc_model == -9999 and sfc_refl == 'S'
-        rt_sfc_emissivity(:,:) = emissivity
-        rt_sfc_reflectivity(:,:) = 1._dbl - emissivity
+        rt_sfc_emissivity(:,:) = sfc_emissivity(i_x,i_y,:,i_f,:)
+        rt_sfc_reflectivity(:,:) = 1._dbl - sfc_emissivity(i_x,i_y,:,i_f,:)
     end if
 
     if (err /= 0) then

@@ -67,7 +67,7 @@ class pyPamtra(object):
     set setting default values
     """
 
-    self.default_p_vars = ["timestamp","lat","lon","wind10u","wind10v","hgt","press","temp","relhum","hgt_lev","press_lev","temp_lev","relhum_lev","q","hydro_q","hydro_n","hydro_reff","wind10u","wind10v","obs_height", "ngridy","ngridx","max_nlyrs","nlyrs","model_i","model_j","unixtime","airturb","radar_prop","groundtemp","wind_w", "wind_uv","turb_edr","sfc_type","sfc_model","sfc_refl","sfc_salinity","sfc_slf","sfc_sif"]
+    self.default_p_vars = ["timestamp","lat","lon","wind10u","wind10v","hgt","press","temp","relhum","hgt_lev","press_lev","temp_lev","relhum_lev","q","hydro_q","hydro_n","hydro_reff","wind10u","wind10v","obs_height", "ngridy","ngridx","max_nlyrs","nlyrs","model_i","model_j","unixtime","airturb","radar_prop","groundtemp","wind_w", "wind_uv","turb_edr","sfc_type","sfc_model","sfc_refl","sfc_salinity","sfc_slf","sfc_sif","sfc_emissivity"]
     self.nmlSet = dict() #:settings which are required for the nml file. keeping the order is important for fortran
     #keys MUST be lowercase for f2py!
     self.nmlSet["hydro_threshold"]=  1.e-10   # [kg/kg]
@@ -86,7 +86,6 @@ class pyPamtra(object):
     self.nmlSet["passive"]= True
     self.nmlSet["radar_mode"]= "simple" #"splitted"|"moments"|"spectrum"
     self.nmlSet["randomseed"] = 0 #0 is real noise, other value gives always the same random numbers
-    self.nmlSet["emissivity"]= 0.6
     self.nmlSet["lgas_extinction"]= True
     self.nmlSet["gas_mod"]= 'R98'
     self.nmlSet["lhyd_absorption"]= True
@@ -196,6 +195,7 @@ class pyPamtra(object):
     self.dimensions["sfc_salinity"] = ["ngridx","ngridy"]
     self.dimensions["sfc_slf"] = ["ngridx","ngridy"]
     self.dimensions["sfc_sif"] = ["ngridx","ngridy"]
+    self.dimensions["sfc_emissivity"] = ["ngridx", "ngridy", "passive_npol", "frequency", "angles"]
 
     self.units = dict()
 
@@ -241,6 +241,7 @@ class pyPamtra(object):
     self.units["sfc_salinity"] = "ppt"
     self.units["sfc_slf"] = "-"
     self.units["sfc_sif"] = "-"
+    self.units["sfc_emissivity"] = "-"
 
     self._nstokes = 2
     self._nangles = 16
@@ -695,7 +696,7 @@ class pyPamtra(object):
     The following variables are mandatory:
     hgt_lev, (temp_lev or temp), (press_lev or press) and (relhum_lev OR relhum)
 
-    The following variables are optional and guessed if not provided:  "timestamp","lat","lon","wind10u","wind10v","hgt_lev","hydro_q","hydro_n","hydro_reff","obs_height","sfc_type","sfc_model","sfc_refl","sfc_salinity"
+    The following variables are optional and guessed if not provided:  "timestamp","lat","lon","wind10u","wind10v","hgt_lev","hydro_q","hydro_n","hydro_reff","obs_height","sfc_type","sfc_model","sfc_refl","sfc_salinity","sfc_emissivity"
 
     hydro_q, hydro_reff and hydro_n can also provided as hydro_q+no001, hydro_q+no002 etc etc
 
@@ -864,6 +865,22 @@ class pyPamtra(object):
           self.p[environment][:] = preset
         else:
           self.p[environment] = kwargs[environment].reshape(self._shape2D)
+    
+    for environment, preset in [["sfc_emissivity", np.array([0.6])]]:
+      if environment not in list(kwargs.keys()):
+        self.p[environment] = preset
+        warnings.warn("%s set to %s"%(environment, preset), Warning)
+      else:
+        if isinstance(kwargs[environment], list):
+          self.p[environment] = np.array(kwargs[environment])
+        elif isinstance(kwargs[environment], np.ndarray):
+          if kwargs[environment].ndim == 0:
+            self.p[environment] = np.array([kwargs[environment]])
+          else:
+            self.p[environment] = kwargs[environment]
+        else:
+          self.p[environment] = np.array([kwargs[environment]])
+      self.p[environment] = self.p[environment][..., ::-1]  # revert angles
 
     for environment, preset in [["obs_height",[833000.,0.]]]:
       if environment not in list(kwargs.keys()):
@@ -1445,6 +1462,29 @@ class pyPamtra(object):
 
     return
 
+  def create_sfc_emissivity(self):
+    """
+    Expands the shape of sfc_emissivity to match the shape required by the 
+    Fortran code. The emissivity are sorted from higher incidence angles to 
+    lower incidence angles (87 to 0 degrees). The emissivity provided by the 
+    user is sorted opposite.
+    """
+
+    # handle deprecated nmlSet emissivity parameter
+    if "emissivity" in self.nmlSet:
+      warnings.warn(
+        'The "emissivity" key of nmlSet is deprecated and will be removed in '
+        'a future version. Use the "sfc_emissivity" key of PAMTRA profile '
+        'instead. Assigning the value of "emissivity" to "sfc_emissivity".',
+        DeprecationWarning,
+        stacklevel=2
+      )
+      self.p["sfc_emissivity"] = np.array([self.nmlSet["emissivity"]])
+      self.nmlSet.pop("emissivity")
+
+    # expand shape of sfc_emissivity. angles are sorted ascending by zenith angle
+    self._shape_emis = (self.p["ngridx"], self.p["ngridy"], self._nstokes, self.set["nfreqs"], self._nangles)
+    self.p["sfc_emissivity"] = np.broadcast_to(self.p["sfc_emissivity"], self._shape_emis)
 
   def runPamtra(self, freqs, checkData=True, failOnError=True):
     '''
@@ -1478,6 +1518,8 @@ class pyPamtra(object):
     assert self.set["att_npol"] > 0
     assert self.p["noutlevels"] > 0
     assert np.prod(self._shape2D) > 0
+
+    self.create_sfc_emissivity()
 
     if checkData: self._checkData()
 
@@ -1547,6 +1589,8 @@ class pyPamtra(object):
 
     assert self.set["nfreqs"] > 0
     assert np.prod(self._shape2D)>0
+
+    self.create_sfc_emissivity()
 
     if checkData: self._checkData()
 
@@ -1636,6 +1680,8 @@ class pyPamtra(object):
 
     assert self.set["nfreqs"] > 0
     assert np.prod(self._shape2D)>0
+
+    self.create_sfc_emissivity()
 
     if checkData: self._checkData()
 
@@ -1751,6 +1797,8 @@ class pyPamtra(object):
 
     assert self.set["nfreqs"] > 0
     assert np.prod(self._shape2D)>0
+
+    self.create_sfc_emissivity()
 
     if checkData: self._checkData()
 
@@ -1886,8 +1934,9 @@ class pyPamtra(object):
 
     profilePart = dict()
     for key in list(self.p.keys()):
-      # import pdb;pdb.set_trace()
-      if type(self.p[key]) is not np.ndarray and type(self.p[key]) is not np.core.defchararray.chararray:
+      if key == "sfc_emissivity":
+        profilePart[key] = self.p[key][pp_startX:pp_endX,pp_startY:pp_endY,:,pp_startF:pp_endF,:]
+      elif type(self.p[key]) is not np.ndarray and type(self.p[key]) is not np.core.defchararray.chararray:
         profilePart[key] = self.p[key]
       else:
         profilePart[key] = self.p[key][pp_startX:pp_endX,pp_startY:pp_endY]
@@ -1906,6 +1955,8 @@ class pyPamtra(object):
     settings = deepcopy(self.set)
     settings["nfreqs"] = pp_endF - pp_startF
     settings["freqs"] = self.set["freqs"][pp_startF:pp_endF]
+
+    assert profilePart["sfc_emissivity"].shape[3] == settings["nfreqs"]
 
     return profilePart, dfData, dfData4D, dfDataFS, settings
 

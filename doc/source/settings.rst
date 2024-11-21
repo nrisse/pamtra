@@ -17,7 +17,6 @@ add_obs_height_to_layer            bool                           False         
 conserve_mass_rescale_dsd          bool                           True               In case the mass mixing ratio for an hydrometeor calculated integrating the drop-size-distribution (DSD) doesn't correspond to the input value, rescale the DSD to account for the mass loss.
 creator                            str                            Pamtrauser         Netcdf file creator
 data_path                          str                            $PAMTRA_DATADIR    Path for emissivity files and other data. If value is $PAMTRA_DATADIR, the corresponding environment variable is used.
-emissivity                         positive float [0,1]           0.6                Surface emissivity used for both polarizations
 file_desc                          str                            ""                 In pure FORTRAN mode and netCDF output, this string is used as an extension to the output file name. For sensitivity studies this might be helpful. 
 gas_mod                            L93, R98                       R98                Model for gas absorption. Either ROSENKRANZ (R98) or LIEBE (L93)
 hydro_adaptive_grid                bool                           True

@@ -18,7 +18,6 @@ radar_mode="simple"
 randomseed = 0
 ground_type='L'
 salinity=33.0
-emissivity=0.6
 lgas_extinction=.true.
 gas_mod='R98'
 lhyd_extinction=.true.

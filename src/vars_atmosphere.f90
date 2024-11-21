@@ -1,7 +1,7 @@
 module vars_atmosphere
 
   use kinds
-  use settings, only: noutlevels
+  use settings, only: noutlevels,nfrq,NSTOKES,nummu
   use report_module
 
   implicit none
@@ -27,6 +27,7 @@ module vars_atmosphere
   integer(kind=long), allocatable, dimension(:,:) :: sfc_type, sfc_model
   real(kind=dbl), allocatable, dimension(:,:) :: sfc_salinity, sfc_slf, sfc_sif
   character(len=1), allocatable, dimension(:,:) ::  sfc_refl
+  real(kind=dbl), allocatable, dimension(:,:,:,:,:) :: sfc_emissivity
 
   real(kind=dbl), allocatable, dimension(:,:,:) :: atmo_relhum_lev,&
        atmo_press_lev, &
@@ -192,6 +193,7 @@ module vars_atmosphere
     allocate(sfc_salinity(atmo_ngridx,atmo_ngridy))
     allocate(sfc_slf(atmo_ngridx,atmo_ngridy))
     allocate(sfc_sif(atmo_ngridx,atmo_ngridy))
+    allocate(sfc_emissivity(atmo_ngridx,atmo_ngridy,nfrq,NSTOKES,nummu))
 
     allocate(atmo_relhum_lev(atmo_ngridx,atmo_ngridy,atmo_max_nlyrs+1))
     allocate(atmo_press_lev(atmo_ngridx,atmo_ngridy,atmo_max_nlyrs+1))
@@ -322,6 +324,7 @@ module vars_atmosphere
     if (allocated(sfc_salinity)) deallocate(sfc_salinity)
     if (allocated(sfc_slf)) deallocate(sfc_slf)
     if (allocated(sfc_sif)) deallocate(sfc_sif)
+    if (allocated(sfc_emissivity)) deallocate(sfc_emissivity)
 
     if (allocated(atmo_month)) deallocate(atmo_month)
     if (allocated(atmo_day)) deallocate(atmo_day)

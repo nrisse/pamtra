@@ -37,7 +37,6 @@ module settings
     integer(kind=long) :: nfrq
 
     real(kind=dbl) :: obs_height     ! upper level output height [m] (> 100000. for satellite)
-    real(kind=dbl) :: emissivity
     real(kind=dbl), dimension(maxfreq) :: freqs
 
     real(kind=dbl), dimension(nummu) :: mu_values, quad_weights
@@ -169,7 +168,6 @@ contains
         read_turbulence_ascii,&
         radar_mode, &
         randomseed, &
-        emissivity, &
         lgas_extinction, &
         lhyd_absorption, &
         lhyd_scattering, &
@@ -484,7 +482,6 @@ contains
         radar_mode="simple" !|"moments"|"spectrum"
         read_turbulence_ascii = .false.
         randomseed = 0
-        emissivity=0.6
         lgas_extinction=.true.
         gas_mod='R98'
         lhyd_absorption=.true.
@@ -630,7 +627,6 @@ contains
       print*, 'freq_str: ', freq_str
       print*, 'file_desc: ', file_desc
       print*, 'radar_airmotion_vmin: ', radar_airmotion_vmin
-      print*, 'emissivity: ', emissivity
       print*, 'save_psd: ', save_psd
       print*, 'save_ssp: ', save_ssp
       print*, "randomseed", randomseed
